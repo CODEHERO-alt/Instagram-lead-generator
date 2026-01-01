@@ -2,7 +2,6 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import { StatusBadge } from "@/components/status-badge";
 import { DMTemplateButton } from "@/components/dm-template-button";
-import { StatusSelect } from "@/components/status-select";
 import { getAuthUser } from "@/lib/auth";
 
 async function fetchLead(id: string) {
@@ -124,7 +123,8 @@ export default async function LeadDetailPage({
               "use server";
               const supabase = createSupabaseServerClient();
               const status = formData.get("status") as string;
-              const reason_dead = (formData.get("reason_dead") as string) || null;
+              const reason_dead =
+                (formData.get("reason_dead") as string) || null;
 
               await supabase
                 .from("instagram_accounts")
@@ -146,9 +146,21 @@ export default async function LeadDetailPage({
             <h2 className="text-sm font-semibold mb-1">Status & Notes</h2>
             <div className="space-y-1">
               <label className="text-xs text-slate-400">Status</label>
-              <StatusSelect value={lead.status} onChange={() => {}} />
+              <select
+                name="status"
+                defaultValue={lead.status}
+                className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs"
+              >
+                <option value="new">new</option>
+                <option value="queued">queued</option>
+                <option value="contacted">contacted</option>
+                <option value="loom_sent">loom_sent</option>
+                <option value="interested">interested</option>
+                <option value="closed">closed</option>
+                <option value="dead">dead</option>
+              </select>
               <p className="text-[11px] text-slate-500">
-                (Status is applied when you submit the form.)
+                Status is applied when you submit the form.
               </p>
             </div>
 
@@ -162,8 +174,6 @@ export default async function LeadDetailPage({
                 className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs"
               />
             </div>
-
-            <input type="hidden" name="status" defaultValue={lead.status} />
 
             <button
               type="submit"
