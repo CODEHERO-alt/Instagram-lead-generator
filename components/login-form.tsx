@@ -2,12 +2,21 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    // This will only ever run in the browser when user submits the form
+    throw new Error(
+      "Supabase URL or anon key is missing. Check your environment variables."
+    );
+  }
+
+  return createClient(url, key);
+}
 
 export function LoginForm() {
   const router = useRouter();
@@ -25,20 +34,30 @@ export function LoginForm() {
     setError(null);
     setSubmitting(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    try {
+      const supabase = getSupabaseClient();
 
-    setSubmitting(false);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    if (error) {
-      setError(error.message);
-      return;
+      if (error) {
+        setError(error.message);
+        setSubmitting(false);
+        return;
+      }
+
+      router.push(redirectTo);
+      router.refresh();
+    } catch (err: any) {
+      console.error(err);
+      setError(
+        err?.message ||
+          "Unexpected error while signing in. Please contact the admin."
+      );
+      setSubmitting(false);
     }
-
-    router.push(redirectTo);
-    router.refresh();
   }
 
   return (
