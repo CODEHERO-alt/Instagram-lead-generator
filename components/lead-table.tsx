@@ -59,8 +59,8 @@ export function LeadTable() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["leads", { status, minScore, maxScore, niche, search, page }],
     queryFn: () =>
-      fetchLeads({ status, minScore, maxScore, niche, search, page, pageSize }),
-    keepPreviousData: true
+      fetchLeads({ status, minScore, maxScore, niche, search, page, pageSize })
+    // React Query v5 no longer supports keepPreviousData – removed
   });
 
   const mutation = useMutation({
