@@ -2,13 +2,16 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
+import type { NextRequest } from "next/server";
 
-function createSupabaseServerClient() {
+/**
+ * Internal helper: create a Supabase server client bound to Next.js cookies.
+ */
+export function createSupabaseServerClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key) {
-    // If this ever happens in prod, something is wrong with env vars
     throw new Error("Supabase URL or anon key not configured on server");
   }
 
@@ -29,6 +32,9 @@ function createSupabaseServerClient() {
   });
 }
 
+/**
+ * Get the currently authenticated user (or null) from Supabase.
+ */
 export async function getAuthUser() {
   const supabase = createSupabaseServerClient();
   const {
@@ -39,8 +45,8 @@ export async function getAuthUser() {
 }
 
 /**
- * Used in /dashboard to ensure only mapped admin users can access.
- * Never throws 500 — it either returns the user or redirects to /login.
+ * Require that the current user exists AND is present in admin_users.
+ * If not, redirect to login with redirect=/dashboard.
  */
 export async function requireAdminUser() {
   const supabase = createSupabaseServerClient();
@@ -50,7 +56,6 @@ export async function requireAdminUser() {
     error: authError,
   } = await supabase.auth.getUser();
 
-  // Not logged in → send to login
   if (authError || !user) {
     redirect("/login?redirect=/dashboard");
   }
@@ -61,7 +66,6 @@ export async function requireAdminUser() {
     .eq("id", user.id)
     .maybeSingle();
 
-  // If table/query fails, or user isn't in admin_users, just send to login.
   if (adminError) {
     console.error("Error querying admin_users:", adminError);
     redirect("/login?redirect=/dashboard");
@@ -72,4 +76,24 @@ export async function requireAdminUser() {
   }
 
   return user;
+}
+
+/**
+ * Used by cron job API routes to ensure only Vercel Cron (with the correct
+ * shared secret) can call the job endpoints.
+ */
+export function assertCronAuth(req: NextRequest) {
+  const expected = process.env.CRON_SECRET_TOKEN;
+
+  if (!expected) {
+    throw new Error("CRON_SECRET_TOKEN is not configured on the server");
+  }
+
+  const provided =
+    req.headers.get("x-cron-secret") || req.headers.get("X-Cron-Secret");
+
+  if (provided !== expected) {
+    // We throw here so the route returns a 500 / can catch and respond 401
+    throw new Error("Unauthorized cron caller: invalid cron secret");
+  }
 }
