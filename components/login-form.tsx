@@ -2,20 +2,20 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key) {
-    // This will only ever run in the browser when user submits the form
     throw new Error(
       "Supabase URL or anon key is missing. Check your environment variables."
     );
   }
 
-  return createClient(url, key);
+  // Browser client that syncs auth via cookies for SSR
+  return createBrowserClient(url, key);
 }
 
 export function LoginForm() {
@@ -39,23 +39,26 @@ export function LoginForm() {
 
       const { error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
 
       if (error) {
+        console.error("Supabase sign-in error:", error);
         setError(error.message);
-        setSubmitting(false);
         return;
       }
 
+      // Auth success → go to dashboard
       router.push(redirectTo);
       router.refresh();
     } catch (err: any) {
-      console.error(err);
+      console.error("Unexpected login error:", err);
       setError(
         err?.message ||
           "Unexpected error while signing in. Please contact the admin."
       );
+    } finally {
+      // Always clear "Signing in..." state, even on error
       setSubmitting(false);
     }
   }
